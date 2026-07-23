@@ -28,6 +28,62 @@ memos.api.ai_api:app
 
 ---
 
+## 本机一键 Docker 部署验收
+
+该入口用于本机完整部署验收，不替代生产发布流程。除 Docker Desktop / Docker Compose 外，宿主机还需要 Node.js `>=20` 和 npm `>=10`，因为首次运行会构建 frontend 和 admin。
+
+从仓库根目录执行：
+
+```bash
+cp docker/.env.example docker/.env
+# 修改 docker/.env 中的本地占位凭证后执行
+./start.sh --docker
+```
+
+脚本会：
+
+1. 检查 Docker daemon；macOS 上会在需要时尝试启动 Docker Desktop。
+2. 自动构建缺失的 `qiuqiuwriter-backend:latest`、`frontend/dist` 和 `admin/dist`。
+3. 启动 PostgreSQL、Redis、MongoDB、MinIO、Qdrant、Neo4j。
+4. 启动 backend、frontend、admin，等待已配置检查的容器健康、其余容器进入运行状态。
+5. 检查 backend、frontend、admin 的 HTTP 入口；任一步失败都会以非零状态退出。
+
+成功后的地址：
+
+| 服务 | 地址 |
+|------|------|
+| Backend API | http://localhost:8000 |
+| Backend docs | http://localhost:8000/docs |
+| Frontend 用户端 | http://localhost:81 |
+| Admin 管理后台 | http://localhost:8889 |
+
+强制重建所有应用制品：
+
+```bash
+./start.sh --rebuild
+```
+
+启动并持续查看应用日志：
+
+```bash
+./start.sh --docker --follow
+```
+
+停止应用和基础设施，保留数据卷：
+
+```bash
+docker compose --env-file docker/.env -f docker/docker-compose.app.yml -p qiuqiuwriter-app down
+docker compose --env-file docker/.env -f docker/docker-compose.infra.yml -p qiuqiuwriter-infra down
+```
+
+仅在确认可以删除本机数据库数据时，再清理基础设施数据卷：
+
+```bash
+docker compose --env-file docker/.env -f docker/docker-compose.infra.yml -p qiuqiuwriter-infra down -v
+```
+
+---
+
 ## 本地开发部署
 
 本地开发请优先使用 [getting-started.md](./getting-started.md) 中的命令。

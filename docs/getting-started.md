@@ -4,6 +4,8 @@
 
 本文推荐的本地模式是：Docker 运行 PostgreSQL、Redis、MongoDB、MinIO；本机运行 backend、frontend、admin。
 
+如果只需要在本机快速验收完整 Docker 部署，使用 `./start.sh --docker`，详见 [部署指南](./deployment.md#本机一键-docker-部署验收)。
+
 ---
 
 ## 环境要求

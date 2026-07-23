@@ -99,7 +99,7 @@ nspox/
 ├── docker/          # Docker Compose、Nginx、PostgreSQL 初始化 SQL
 ├── deploy/          # 部署辅助文件和历史数据导出
 ├── docs/            # 项目文档
-└── start.sh         # 历史一键启动脚本；推荐命令以 docs/getting-started.md 为准
+└── start.sh         # 本机 Docker 一键部署与健康检查入口
 ```
 
 ---
@@ -119,6 +119,28 @@ nspox/
 ## 快速本地启动
 
 完整步骤见 [快速开始](docs/getting-started.md)。最短路径如下，命令默认从仓库根目录执行。
+
+需要快速完成本机 Docker 部署验收时：
+
+```bash
+cp docker/.env.example docker/.env
+# 修改 docker/.env 中的本地占位凭证后执行
+./start.sh --docker
+```
+
+该命令会在缺少构建产物时自动构建 backend、frontend 和 admin，启动 Docker 基础设施与应用容器，等待容器健康，并检查 backend、frontend、admin 的 HTTP 入口。成功后命令退出，容器继续运行。
+
+Docker 模式访问地址：
+
+| 服务 | 地址 |
+|------|------|
+| Backend docs | http://localhost:8000/docs |
+| Frontend 用户端 | http://localhost:81 |
+| Admin 管理后台 | http://localhost:8889 |
+
+强制重建使用 `./start.sh --rebuild`，跟随应用日志使用 `./start.sh --docker --follow`。该入口用于本机验收，不替代 [生产部署指南](docs/deployment.md)。
+
+日常开发仍推荐 Docker 运行基础设施、本机运行三个业务服务：
 
 ```bash
 cp docker/.env.example docker/.env
