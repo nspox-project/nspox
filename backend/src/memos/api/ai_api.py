@@ -211,7 +211,7 @@ if __name__ == "__main__":
     import uvicorn
 
     parser = argparse.ArgumentParser(description="启动AI接口服务")
-    parser.add_argument("--port", type=int, default=8001, help="服务端口")
+    parser.add_argument("--port", type=int, default=settings.PORT, help="服务端口")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="服务主机")
     parser.add_argument("--workers", type=int, default=1, help="工作进程数")
     args = parser.parse_args()
