@@ -20,6 +20,9 @@ services:
       REDIS_PORT: 6379
       MONGODB_HOST: mongodb
       MONGODB_PORT: 27017
+      # 本地 infra 未启用 MongoDB 认证；生产 Compose 使用 docker/.env 中的强凭证。
+      MONGODB_USERNAME: ""
+      MONGODB_PASSWORD: ""
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6333
       NEO4J_URI: bolt://neo4j:7687
@@ -30,6 +33,12 @@ services:
     working_dir: /app
     command: >
       sh -c "uvicorn memos.api.ai_api:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/ai/health > /dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
     # depends_on 移除，因为基础设施在另一个 compose 文件中管理
     # 也可以保留但需要保证网络连通，这里由 external network 保证
     networks:
@@ -47,8 +56,14 @@ services:
     volumes:
       - ../frontend/dist:/usr/share/nginx/html:ro
       - ./nginx/frontend.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - qiuqiuwriter_net
 
@@ -61,8 +76,14 @@ services:
     volumes:
       - ../admin/dist:/usr/share/nginx/html:ro
       - ./nginx/admin.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8889/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - qiuqiuwriter_net
 

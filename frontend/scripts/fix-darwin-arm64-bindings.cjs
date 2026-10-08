@@ -21,7 +21,9 @@
  */
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 // 仅在 macOS arm64 处理；其它平台直接退出，避免影响 Linux CI / Windows。
 if (process.platform !== "darwin" || process.arch !== "arm64") {
@@ -46,7 +48,7 @@ const targets = [
 const versionOf = (rel) => {
   const file = path.join(nodeModules, rel);
   try {
-    return require(file).version; // eslint-disable-line import/no-dynamic-require
+    return require(file).version;
   } catch {
     return null;
   }
@@ -57,7 +59,7 @@ const isInstalled = (pkg) => {
   return fs.existsSync(path.join(nodeModules, pkg));
 };
 
-let installedAny = false;
+const missing = [];
 for (const t of targets) {
   const version = versionOf(t.versionFile);
   if (!version) {
@@ -67,23 +69,59 @@ for (const t of targets) {
   if (isInstalled(t.pkg)) {
     continue;
   }
-  const spec = `${t.pkg}@${version}`;
-  console.log(`[fix-darwin-arm64] 安装缺失的原生 binding: ${spec}`);
-  // 使用 spawnSync 同步执行，继承 stdio
-  const { spawnSync } = require("node:child_process");
-  const result = spawnSync(
-    "npm",
-    ["install", "--no-save", "--no-package-lock", spec, "--registry=https://registry.npmjs.org/"],
-    { cwd: projectRoot, stdio: "inherit" }
-  );
-  if (result.status !== 0) {
-    console.warn(`[fix-darwin-arm64] 警告: 安装 ${spec} 失败 (exit ${result.status})。`);
-    console.warn("    可手动执行 getting-started.md 中的 macOS arm64 修复命令。");
-  } else {
-    installedAny = true;
-  }
+  missing.push({ ...t, spec: `${t.pkg}@${version}` });
 }
 
-if (installedAny) {
+if (missing.length === 0) {
+  process.exit(0);
+}
+
+for (const target of missing) {
+  console.log(`[fix-darwin-arm64] 安装缺失的原生 binding: ${target.spec}`);
+}
+
+// 在隔离目录安装，避免重新解析项目依赖并递归触发本项目 postinstall。
+const installRoot = fs.mkdtempSync(path.join(os.tmpdir(), "nspox-native-bindings-"));
+const registry = process.env.npm_config_registry || "https://registry.npmjs.org/";
+
+try {
+  const result = spawnSync(
+    "npm",
+    [
+      "install",
+      "--no-save",
+      "--no-package-lock",
+      "--ignore-scripts",
+      "--prefix",
+      installRoot,
+      ...missing.map(({ spec }) => spec),
+      `--registry=${registry}`,
+    ],
+    { cwd: projectRoot, stdio: "inherit", timeout: 180_000 }
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(`npm install exited with status ${result.status}`);
+  }
+
+  for (const target of missing) {
+    const source = path.join(installRoot, "node_modules", target.pkg);
+    const destination = path.join(nodeModules, target.pkg);
+    if (!fs.existsSync(source)) {
+      throw new Error(`npm did not install ${target.spec}`);
+    }
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.cpSync(source, destination, { recursive: true, force: true });
+  }
+
   console.log("[fix-darwin-arm64] 原生 binding 补齐完成。");
+} catch (error) {
+  console.error(`[fix-darwin-arm64] 安装失败: ${error.message}`);
+  console.error("    可手动执行 docs/getting-started.md 中的 macOS arm64 修复命令。");
+  process.exitCode = 1;
+} finally {
+  fs.rmSync(installRoot, { recursive: true, force: true });
 }

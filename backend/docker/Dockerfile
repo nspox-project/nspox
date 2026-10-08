@@ -34,18 +34,26 @@ COPY docker/requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# 5. 安装 Python 依赖（带镜像源和超时）
+# 5. CPU 部署固定使用项目锁定的 Torch 版本，避免 pip 解析到带 CUDA 的新版本。
+ARG TORCH_VERSION=2.7.1
+ARG PYTORCH_CPU_INDEX_URL=https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir \
+    --index-url "${PYTORCH_CPU_INDEX_URL}" \
+    "torch==${TORCH_VERSION}"
+
+# 6. 安装 Python 依赖（带镜像源和超时）
 RUN pip install --no-cache-dir \
     -i https://mirrors.aliyun.com/pypi/simple/ \
     --default-timeout=600 \
     -r requirements.txt
-# 6. 拷贝应用源码
+
+# 7. 拷贝应用源码
 # .dockerignore 会过滤掉不需要的文件
 COPY . .
 
-# 7. 暴露端口
+# 8. 暴露端口
 EXPOSE 8000
 
-# 8. 启动脚本
+# 9. 启动脚本
 # 生产环境不使用 --reload
 CMD ["uvicorn", "memos.api.ai_api:app", "--host", "0.0.0.0", "--port", "8000"]
